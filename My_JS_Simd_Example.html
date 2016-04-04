@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" xmlns:fb="http://ogp.me/ns/fb#">
+<body>
+<div class="demo-wrapper">
+
+
+   <button id="copy">Just copy</button>
+   <button id="inverse">Inverse</button>
+   <button id="inverseSimd">Inverse SIMD</button>
+   <output id="output"></output>
+   <hr></hr>
+   <canvas id="canvas" width="1024" height="768"></canvas>
+   <canvas id="canvasHiden" width="1024" height="768" hidden="true" ></canvas>
+   <video id="video" width="1024" height="768" hidden="true" autoplay></video>
+
+   <script>
+window.addEventListener("DOMContentLoaded", function() {
+      var canvasHiden = document.getElementById("canvasHiden");
+      var canvas= document.getElementById("canvas");
+      var output = document.getElementById("output");
+      output.value = "Hi";
+      var ts1 = 0;
+      var ts2 = 0;
+      var steps = 0;
+      var sum = 0;
+      var method = "copy"
+      contextHiden = canvasHiden.getContext("2d");
+      context = canvas.getContext("2d");
+      var video = document.getElementById("video");
+      var videoObj = { "video": true };
+      errBack = function(error) {
+      console.log("Video capture error: ", error.code); 
+      };
+
+      if(navigator.getUserMedia) { 
+      navigator.getUserMedia(videoObj, function(stream) {
+         video.src = stream;
+         video.play();
+         }, errBack);
+      } else if(navigator.webkitGetUserMedia) {
+      navigator.webkitGetUserMedia(videoObj, function(stream){
+         video.src = window.webkitURL.createObjectURL(stream);
+         video.play();
+         }, errBack);
+      } else if(navigator.mozGetUserMedia) {
+         navigator.mozGetUserMedia(videoObj, function(stream){
+               video.src = window.URL.createObjectURL(stream);
+               video.play();
+               }, errBack);
+      }
+
+      function restartCounting() {
+      steps = 0;
+      sum = 0;
+      }
+
+      document.getElementById("copy").addEventListener("click", function() {
+            method = "copy"
+            restartCounting();
+            });
+
+      document.getElementById("inverse").addEventListener("click", function() {
+            method = "inverse"
+            restartCounting();
+            });
+
+      document.getElementById("inverseSimd").addEventListener("click", function() {
+            method = "inverseSimd"
+            restartCounting();
+            });
+
+      function inverse(imgData) {
+         for (let i = 0; i < imgData.data.length; i += 4) {
+            imgData.data[i] = 255 - imgData.data[i];
+            imgData.data[i+1] = 255 - imgData.data[i+1];
+            imgData.data[i+2] = 255 - imgData.data[i+2];
+            imgData.data[i+3] = 255;
+         }
+      }
+var mask = SIMD.Uint8x16(255,255,255,254,
+                                  255,255,255,254,
+                                  255,255,255,254,
+                                  255,255,255,254); 
+
+      function inverseSimd(imgData) {
+                  for (let i = 0; i < imgData.data.length; i += 16) {
+            SIMD.Uint8x16.store(imgData.data, i,  SIMD.Uint8x16.sub(mask, SIMD.Uint8x16.load(imgData.data, i)))
+         }
+      }
+
+      function work(imgData) {
+         switch(method) {
+            case "copy": 
+               return;
+            case "inverse": 
+               inverse(imgData);
+               return;Int32Array
+            case "inverseSimd": 
+               inverseSimd(imgData);
+               return;
+         }
+      }
+
+      function draw() {
+         requestAnimationFrame(draw);
+         contextHiden.drawImage(video, 0, 0, 1024, 768);
+         var imgData = contextHiden.getImageData(0, 0, canvasHiden.width, canvasHiden.height);
+         ts1 = Date.now();
+         work(imgData);
+         ts2 = Date.now();
+         context.putImageData(imgData, 0, 0);
+         sum += ts2 - ts1;
+         steps++;
+         output.value = "[" + Math.round(sum / steps) + "]" + (ts2 - ts1);
+      }
+      draw();
+}, false);
+
+   </script>
+</div>
+<script>
+
+</body>
+</html>
